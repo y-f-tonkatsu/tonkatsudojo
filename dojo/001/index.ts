@@ -46,7 +46,6 @@ const script: DojoScript = canvasID => {
             ${color[3]}
         )`;
 
-
         const [dx, dy] = [speedX, speedY].map(speed => random() * speed);
         const [gx, gy] = [x + dx, y + dy];
 
