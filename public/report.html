@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Next.js + TypeScript Web アプリ構築方法の学習</title>
+
+</head>
+<body>
+
+<div class="flex">
+
+    <article>
+
+        <h1>Next.js + TypeScript Web アプリ構築方法の学習</h1>
+
+        <h2>課題</h2>
+        <ul>
+            <li>Next.js で Web アプリを構築する手順を学ぶ</li>
+            <li>型システムに慣れる</li>
+        </ul>
+
+        <h2>Next.js 概要</h2>
+        <p>
+            Next.js は React のフレームワーク。<br/>
+            ブラウザルーターやサーバーサイドレンダリング(SSR)等、<br/>
+            素の React でやると複雑な設定が必要な機能が<br/>
+            最初からセットアップされた状態で開発を始められる。<br/>
+            何か新しいことが出来るようになるというよりは、<br/>
+            今までやっていた面倒なことが簡単になるのがメリット。
+        </p>
+
+        <h2>セットアップ</h2>
+        <p>
+            create-react-app と同じく、<br/>
+            <code>
+                yarn create next-app --ts
+            </code><br/>
+            して、質問に答えていけばOK.<br/>
+            <code>npx create-next-app</code><br/>
+            でもいけるが、yarn 推奨っぽい。
+        </p>
+
+        <p>
+            --example フラグに<br/>
+            <a href="https://github.com/vercel/next.js/tree/master/examples">ここ</a>のリポジトリ名を付けると、<br/>
+            サンプル付きでセットアップされる。
+        </p>
+
+        <p>
+            <code>yarn dev</code><br/>で開発サーバー起動。<br/>簡単。
+        </p>
+
+        <h2>ページ</h2>
+        <p>
+            Next.js ではページという概念でURLが表現される。<br/>
+            <code>yarn create next-app --ts</code><br/>
+            すると、プロジェクトディレクトリ直下に page ディレクトリが作られる。<br/>
+            この page ディレクトリ以下のファイル構造がそのまま URL に反映される。
+        </p>
+        <p>
+            例としてベースURLが http://ton-katsu.net/ とする。<br/>
+            page 直下に index.tsx を作成して、<br />
+            next.NextPage 型の react コンポーネントをエクスポートする。<br />
+            (next.NextPage 型の詳細は未調査だが、通常の react コンポーネントと同様に扱える)
+        </p>
+        <pre>page<br/>  index.tsx</pre>
+        <p>
+            その状態で http://ton-katsu.net/index にアクセスすると、<br/>
+            index.tsx のコンポーネントがレンダリングされたものが表示される。<br/>
+            page 直下に about ディレクトリを作り、<br/>
+            author.tsx を作り  NextPage コンポーネントをエクスポートさせる。
+        </p>
+        <pre>page<br/>  index.tsx<br/>  about<br/>    author.tsx</pre>
+        <p>http://ton-katsu.net/about/author<br/>
+            にアクセスすると、author.tsx で<br/>
+            エクスポートしたコンポーネントがレンダリングされる。
+        </p>
+
+        <h3>リンク</h3>
+
+        <p>
+            相対リンクには Link コンポーネントを使う。<br/>
+            <code>&lt;ink href="about/author"&gt;著者情報&lt;/Link&gt;</code><br/>
+            <code>&lt;Link href="/"&gt;戻る&lt;/Link&gt;</code><br/>
+            といった具合。<br/>
+            リンクを踏むと、URLが変わり対応するコンポーネントのレンダリングが行われるが、ページの遷移は発生しない。<br/>
+            例えば、console.log() の内容は消えずに残る。
+        </p>
+        <p>
+            要するに普通の静的サイトのシンプルな URL 構築方法と、<br />
+            コンポーネント指向SPAのいいとこ取りである。<br/>
+            簡単かつ直感的にブラウザルーターが使えるのは大きなメリットと思う。
+        </p>
+
+        <h3>動的ルーティング</h3>
+        <p>
+            pages ディレクトリ内でディレクトリ名またはファイル名を [] で囲むと動的ルーティングが可能。<br/>
+            例:
+        </p>
+        <pre>page<br/>  index.tsx<br/>  user<br/>    [id]<br/>      profile.tsx</pre>
+        <p>
+            で、/user/3/profile/ にアクセスするとid=3がクエリパラメータとして送られる。<br/>
+            取得に useRouter() を使う。<br/>
+            例:<br/>
+        <pre>const UserProfile: NextPage = () => {
+    const router = useRouter();
+    const {id} = router.query;
+    return &lt;div&gt;ユーザーID: {id}&lt;/div&gt;
+}</pre>
+        </p>
+
+        <p>
+            余談:<br />
+            useXXX というネーミングから分かる通り<br />
+            useRouter は React フックである。<br />
+            例えば NextRouter.push() メソッドを呼び出して<br />
+            URLを変更すると依存するコンポーネントが再レンダーされる。
+        </p>
+
+        <h3>過変数クエリパラメータ</h3>
+
+        <p>
+            コンポーネントのファイル名に "..." を付すことにより、可変数のクエリパラメータを設定できる。<br/>
+            例:<br/>
+        </p>
+
+        <pre>page<br/>  index.tsx<br/>  animals<br/>    [...groups].tsx</pre>
+
+        <p>
+            取得の例は以下。
+        </p>
+
+        <pre>const Groups: NextPage = () => {
+    const router = useRouter();
+    const {groups} = router.query;
+    let calling = "";
+    if (Array.isArray(groups)) {
+        calling = groups.reduce((prev, current, index) => `${prev}! ${current}! `);
+    } else if (typeof groups === "string") {
+        calling = groups;
+    }
+    return &lt;div&gt;{calling}&lt;/div&gt;
+}</pre>
+
+        <p>
+            /animals/dogs/cats/bears/lions にアクセスするとレンダリング結果は<br/>
+            <code> &lt;div&gt;dogs! cats! bears! lions! &lt;/div&gt;</code> となる。<br/>
+            なお、NextRouter.query() の返り値の型は<br/>
+            string|string[]|undefined なので上記のようなチェックが必要となる。
+        </p>
+
+        <h2>おわりに</h2>
+
+        <p>
+            その他、useRouter 詳細, Static Generation,<br />
+            _app.tsx コンポーネント, Layout コンポーネント<br />
+            等についても概要を学んだ。<br />
+            今後まとめていく。<br />
+        </p>
+
+        <p>
+            本日の学習はルーティング関連機能の調査に終始したが、<br />
+            ブラウザルーティングが簡単かつ直感的に実装できることが分かり、<br />
+            Next.js のメリットを実感できた。<br />
+            また、型情報を意識しての React コンポーネント実装にも親しむことができた。
+        </p>
+
+    </article>
+</div>
+
+</body>
+</html>
