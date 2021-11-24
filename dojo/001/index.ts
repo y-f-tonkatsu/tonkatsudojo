@@ -28,8 +28,10 @@ const script: DojoScript = canvasID => {
     let [speedX, speedY] = [5, 5];
     let color: number[] = [1, 1, 1, 1];
     ctx.lineWidth = 0.1;
-    const strokeRandomness = 100;
+    let strokeRandomness = 10;
     looper((delta, timeStamp) => {
+
+        strokeRandomness = (2 - Math.cos(timeStamp * 0.001)) * 15;
 
         ctx.beginPath();
         color = color.map(v => {
@@ -43,21 +45,22 @@ const script: DojoScript = canvasID => {
             ${Math.floor(color[0] * 255)},
             ${Math.floor(color[1] * 255)},
             ${Math.floor(color[2] * 255)},
-            ${color[3]}
+            ${color[3] * 0.3}
         )`;
 
         const [dx, dy] = [speedX, speedY].map(speed => random() * speed);
         const [gx, gy] = [x + dx, y + dy];
 
         for (let i = 0; i < 10; i++) {
-            ctx.moveTo(x + random() * strokeRandomness * 0.1, y + random() * strokeRandomness*0.1);
-            [x, y] = [x, y].map(v => Math.max(v, 0));
-            x = Math.min(x, ScreenX);
-            y = Math.min(y, ScreenY);
+            ctx.moveTo(x + random() * strokeRandomness, y + random() * strokeRandomness);
             ctx.lineTo(gx + random() * strokeRandomness, gy + random() * strokeRandomness);
         }
 
-        [x, y] = [gx, gy]
+        [x, y] = [gx, gy];
+        [x, y] = [x, y].map(v => Math.max(v, 0));
+        x = Math.min(x, ScreenX);
+        y = Math.min(y, ScreenY);
+
         ctx.stroke();
         ctx.closePath();
     });
