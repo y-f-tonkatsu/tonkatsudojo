@@ -4,7 +4,6 @@ import {Work} from "../types/DojoScript";
 
 export default function PlayGround({work}: { work: Work }) {
 
-
     useEffect(() => {
         work.script(work.id);
     }, []);

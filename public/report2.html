@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Next.js + TypeScript Web アプリ構築方法の学習2</title>
+    <title>Next.js, TypeScript, FireBase, Vercel で Web アプリを構築する</title>
 
 </head>
 <body>
@@ -11,29 +11,246 @@
 
     <article>
 
-        <h1>Next.js + TypeScript Web アプリ構築方法の学習2</h1>
+        <h1>Next.js, TypeScript, FireBase, Vercel で Web アプリを構築する</h1>
 
         <h2>課題</h2>
         <ul>
-            <li>Next.js で Web アプリを構築する手順を学ぶ</li>
-            <li>型システムに慣れる</li>
+            <li>Next.js での Web アプリ構築を実践する</li>
+            <li>特に Static Generation を使ってみる</li>
+            <li>FireBase で REST API を作って組み合わせる</li>
+            <li>Vercel で公開するところまで一通りやる</li>
+            <li>できるだけ型安全を意識する</li>
         </ul>
+
+        <h2>Static Generation とプリレンダリング戦略を概観する</h2>
+
+        <p>
+            Next のプリレンダリングには<br/>
+            サーバーサイドレンダリング(SSR)だけでなく<br/>
+            Static Generation なるオプションがある。
+        </p>
+
+        <p>
+            Static Generation を使うと、<br/>
+            DBアクセス等で外部から取得する値を<br/>
+            yarn build 時に埋め込むことが可能。<br/>
+            ページ要求時には、データが埋め込まれた<br/>
+            静的HTMLが返される。
+        </p>
+
+        <p>
+            SSR でも得られる<br/>
+            ・クライアントサイドでのJS実行が不要<br/>
+            ・CDNでキャッシュが可能<br/>
+            ・SEOに有利<br/>
+            といったメリットが得られる上に、<br/>
+            ページ要求時に外部データの取得と、<br/>
+            サーバー上でのJS実行まで行う必要がなくなる。<br />
+            このため、可能な限り Static Generation を<br />
+            SSR より優先で選択したい。
+        </p>
+
+        <p>
+            とはいえ、当然ながら<br/>
+            yarn build するタイミングでしか、<br/>
+            外部データの値を更新できない。<br/>
+            「ブログをポストするたびに yarn build する」<br/>
+            といった運用をする場合は<br/>
+            Static Generation を使い、<br/>
+            コンテンツの更新頻度が<br/>
+            yarn build する頻度よりも高い場合は<br/>
+            SSR を使うことになる。
+        </p>
+
+        <h2>FireBase で REST API を作る</h2>
+
+        <p>
+            今回は実践的に Web アプリを構築してみる。<br/>
+            FireBase の Cloud Firestore で REST API を作った。<br/>
+            作業詳細は省略するが、<br/>
+            GET すると以下のような JSON を返す。
+        </p>
+
+        <pre>[
+    {
+      "id": 0,
+      "name": "ハンバーガー",
+      "price": 800
+    },
+    {
+      "id": 1,
+      "name": "チーズバーガー",
+      "price": 1000
+    },
+    {
+      "id": 2,
+      "name": "ポテトフライ",
+      "price": 500
+    },
+    {
+      "id": 3,
+      "name": "鮒鮨",
+      "price": 9800
+    }
+]</pre>
+
+        <h2>型定義</h2>
+
+        <p>
+            サーバーサイドから安全にデータを受け取るために型情報を定義しておく。
+        </p>
+
+        <pre>export type Menu = {
+    id: number;
+    name: string;
+    price: number;
+};</pre>
+
+        <p>
+            NextPage コンポーネントでは以下のように<br />
+            Props 型を定義し、Menu型の配列を props として受け取るようにする。<br />
+            (key の設定を忘れないようにすること)
+        </p>
+
+        <pre>type Props = {
+    menu:Menu[];
+}
+
+const Home: NextPage&lt;Props&gt; = (props:Props) => {
+
+    const menu = props.menu;
+
+    return (
+        &lt;div className={styles.container}&gt;
+            &lt;ul&gt;
+                {menu.map(m=> &lt;li key={m.id}>{m.name}&lt;/li&gt;)}
+            &lt;/ul&gt;
+        &lt;/div&gt;
+    )
+}</pre>
+
+        <h2>Firebase からデータを GET する</h2>
+
+        <p>
+            アプリの表示側で Menu 型を受け取れるようになったので、<br />
+            実際に API をコールしてデータを GET するモジュールを作る。<br />
+            Firebase JavaScript SDK を使って以下のように書ける。
+        </p>
+
+        <pre>import {initializeApp} from "firebase/app";
+import {collection, getDocs, getFirestore} from "@firebase/firestore";
+
+const firebaseConfig = {
+    ...省略...
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+export async function getMenu():Promise&lt;Menu[]&gt; {
+    const col = collection(db, 'menu');
+    const menuSnapshot = await getDocs(col);
+    const menuList:Menu[] = menuSnapshot.docs.map(doc => doc.data()) as Menu[];
+    return menuList;
+}</pre>
+
+        <p>
+            getMenu() 関数からは Menu 型の配列が返ることが保証される。<br />
+            しかし、Firebase から値を受け取る部分では<br />
+            型アサーションを行っており、型安全が保証されない。<br>
+            CollectionReference の withConverter() メソッドで<br />
+            コレクションデータの取得時に型情報を付与できるという情報は得られたが、<br />
+            今回は公開まで一通りやることを重視してこのままにしておく。
+        </p>
 
         <h2>Static Generation</h2>
 
         <p>
-            Static Generation を使うと、
-            DBアクセス等でサーバーから取得する値を
-            アプリのビルド時に埋め込むことが可能。
-            埋め込まれた
+            受け取ったデータを static generation でビルド時に埋め込む。<br />
+            (なお、 yarn dev で開発中でもページを更新すれば、<br />
+            値を取得してビルドし直してくれるようである。)<br />
+            static generation するには、埋め込みたいコンポーネントで<br />
+            非同期関数 getStaticProps() をエクスポートする。<br />
+            getStaticProps() の返り値のオブジェクトに<br />
+            'props' キーを設定すると<br />
+            当該コンポーネントがレンダリングされる際に<br />
+            値を props として受け取ることが出来る。<br />
+            以下のように実装した。
         </p>
 
-        ,<br />
-        _app.tsx コンポーネント, Layout コンポーネント
+        <pre>export async function getStaticProps() {
+
+    const menu = await getMenu();
+
+    return {
+        props: {
+            menu: menu
+        },
+    }
+}</pre>
+
+        <p>
+            これで以下の流れが完成した。<br />
+            1. getMenu 関数で FireBase から値を取得<br />
+            2. getStaticProps 関数で値がコンポーネントに props として渡される<br />
+            3. 受け取った値を使ってコンポーネントをレンダリング<br />
+            ビルド時に上記1-3が実行され、<br />
+            ページ要求時にはビルド時にレンダリングされた静的ページが渡される。
+        </p>
+
+        <p>
+            実際にビルドしてみると .next/server/pages 内に以下のように<br />
+            HTML が作成されていることが確認できる。<br />
+            (一部を抜粋。 実際には head 等もある。)
+        </p>
+
+        <pre>&lt;div id="__next"&gt;
+    &lt;div class="Home_container__1EcsU"&gt;
+        &lt;ul&gt;
+            &lt;li&gt;ハンバーガー&lt;/li&gt;
+            &lt;li&gt;チーズバーガー&lt;/li&gt;
+            &lt;li&gt;ポテトフライ&lt;/li&gt;
+            &lt;li&gt;鮒鮨&lt;/li&gt;
+        &lt;/ul&gt;
+    &lt;/div&gt;
+&lt;/div&gt;</pre>
+
+        <p>
+            なお、 getStaticProps() の代わりに、<br />
+            getStaticPaths() をエクスポートすると<br />
+            ダイナミックルーティングにも対応できる。
+        </p>
+
+        <h2>Vercel で公開する</h2>
+
+        <p>
+            一旦これで完成ということにして、<br />
+            Vercel で公開してみる。
+        </p>
+
+        <p>
+            これが本当に楽だった。<br >
+            GitHub に push して Vercel のサイト上で<br >
+            リポジトリ指定して数回クリックするだけ。<br >
+            Vercel との組み合わせで<br >
+            デプロイがこの上なく簡単になるのは<br >
+            Next の大きなメリットと思う。<br >
+            ドメイン設定もやってみたが簡単だった。
+        </p>
 
         <h2>おわりに</h2>
 
         <p>
+            型関連の情報を調べるのに時間がかかって大したものは作れなかったが、<br />
+            型に慣れるのも目的なのでよし。
+        </p>
+
+        <p>
+            今後の課題として、<br />
+            withConverter や getStaticPaths の使い方が残った。<br />
+            getStaticProps でコンポーネントに props を渡すところが<br />
+            実は安全じゃない気がするのでそこも今後調べたい。<br />
+            Vercel は Serverless Function も使えるみたいなのでその辺りも。
         </p>
 
     </article>
